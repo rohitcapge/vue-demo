@@ -1,5 +1,22 @@
 <template>
-  <div class="content">
+  <div class="content" v-if="partsStore.parts">
+    <div class="top-row">
+      <!-- <div class="robot-name">
+        {{ selectedRobot.head.title }}
+        <span class="sale" v-if="selectedRobot.head.onSale">Sale!</span>
+      </div> -->
+      <PartSelector :parts="partsStore.parts.heads" @partSelected="part => selectedRobot.head = part" position="top" />
+    </div>
+    <div class="middle-row">
+      <PartSelector :parts="partsStore.parts.arms" @partSelected="part => selectedRobot.leftArm = part" position="left" />
+      <PartSelector :parts="partsStore.parts.torsos" @partSelected="part => selectedRobot.torso = part"
+        position="center" />
+      <PartSelector :parts="partsStore.parts.arms" @partSelected="part => selectedRobot.rightArm = part"
+        position="right" />
+    </div>
+    <div class="bottom-row">
+      <PartSelector :parts="partsStore.parts.bases" @partSelected="part => selectedRobot.base = part" position="bottom" />
+    </div>
     <div class="preview">
       <CollapsibleSection>
         <template v-slot:collapse>&#x25B2; Hide</template>
@@ -20,75 +37,74 @@
       </CollapsibleSection>
       <button class="add-to-cart" @click="addToCart()">Add to Cart</button>
     </div>
-    <div class="top-row">
-      <div class="robot-name">
-        {{ selectedRobot.head.title }}
-        <span v-if="selectedRobot.head.onSale" class="sale">Sale!</span>
-      </div>
-      <PartSelector :parts="availableParts.heads" position="top" @partSelected="part => selectedRobot.head = part" />
-    </div>
-    <div class="middle-row">
-      <PartSelector :parts="availableParts.arms" position="left" @partSelected="part => selectedRobot.leftArm = part" />
-      <PartSelector :parts="availableParts.torsos" position="center" @partSelected="part => selectedRobot.torso = part" />
-      <PartSelector :parts="availableParts.arms" position="right" @partSelected="part => selectedRobot.rightArm = part" />
-    </div>
-    <div class="bottom-row">
-      <PartSelector :parts="availableParts.bases" position="bottom" @partSelected="part => selectedRobot.base = part" />
-    </div>
-  </div>
-  <div>
-    <h1>Cart</h1>
-    <table>
-      <thead>
-        <tr>
-          <th>Robot</th>
-          <th class="cost">Cost</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="(robot, index) in cart" :key="index">
-          <td>{{ robot.head.title }}</td>
-          <td class="cost">{{ toCurrency(robot.cost) }}</td>
-        </tr>
-      </tbody>
-    </table>
   </div>
 </template>
 
-<script setup>
-import { computed, ref, onMounted } from 'vue';
-import parts from '../data/parts';
-import { toCurrency } from '../shared/formatters';
+<script>
+import { mapStores } from 'pinia';
+
 import PartSelector from './PartSelector.vue';
 import CollapsibleSection from '../shared/CollapsibleSection.vue';
+import { useCartStore } from '../stores/cartStoreOptions';
+import { usePartsStore } from '../stores/partsStoreOptions';
 
-const availableParts = parts;
-const cart = ref([]);
-
-onMounted(() => console.log('onMounted executed'));
-const selectedRobot = ref({
-  head: {},
-  leftArm: {},
-  torso: {},
-  rightArm: {},
-  base: {},
-});
-
-const headBorderColor = computed(() => (selectedRobot.value.head.onSale ? 'red' : '#aaa'));
-
-const addToCart = () => {
-  const robot = selectedRobot.value;
-  const cost = robot.head.cost +
-    robot.leftArm.cost +
-    robot.torso.cost +
-    robot.rightArm.cost +
-    robot.base.cost;
-  cart.value.push({ ...robot, cost });
-  console.log(cart.value.length);
+export default {
+  components: { PartSelector, CollapsibleSection },
+  mounted() { console.log('onMounted executed.'); },
+  created() { this.partsStore.getParts(); },
+  data() {
+    return {
+      selectedRobot: {
+        head: {},
+        leftArm: {},
+        torso: {},
+        rightArm: {},
+        base: {},
+      },
+    };
+  },
+  computed: {
+    ...mapStores(useCartStore, usePartsStore),
+    headBorderColor() { return this.selectedRobot.head.onSale ? 'red' : '#aaa'; },
+  },
+  methods: {
+    addToCart() {
+      const robot = this.selectedRobot;
+      const cost = robot.head.cost +
+        robot.leftArm.cost +
+        robot.torso.cost +
+        robot.rightArm.cost +
+        robot.base.cost;
+      this.cartStore.cart.push({ ...robot, cost });
+    },
+  },
 };
 </script>
 
 <style lang="scss" scoped>
+.content {
+  position: relative;
+}
+
+.add-to-cart {
+  position: absolute;
+  width: 310px;
+  padding: 5px;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.robot-name {
+  position: absolute;
+  top: -25px;
+  text-align: center;
+  width: 100%;
+}
+
+.sale {
+  color: red;
+}
+
 .part {
   position: relative;
   width: 200px;
@@ -203,19 +219,15 @@ const addToCart = () => {
   right: -3px;
 }
 
-.robot-name {
-  position: absolute;
-  top: -25px;
-  text-align: center;
-  width: 100%;
+td,
+th {
+  text-align: left;
+  padding: 5px;
+  padding-right: 20px;
 }
 
-.sale {
-  color: red;
-}
-
-.content {
-  position: relative;
+.cost {
+  text-align: right;
 }
 
 .preview {
@@ -229,6 +241,7 @@ const addToCart = () => {
 
 .preview-content {
   border: 1px solid #999;
+  padding: 10px;
 }
 
 .preview img {
@@ -242,23 +255,5 @@ const addToCart = () => {
 
 .rotate-left {
   transform: rotate(-90deg);
-}
-
-.add-to-cart {
-  position: absolute;
-  width: 310px;
-  padding: 3px;
-  font-size: 16px;
-}
-
-td,
-th {
-  text-align: left;
-  padding: 5px;
-  padding-right: 20px;
-}
-
-.cost {
-  text-align: right;
 }
 </style>
